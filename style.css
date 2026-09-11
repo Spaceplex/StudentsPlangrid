@@ -1,0 +1,58 @@
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #e9edf0;
+}
+
+h1 {
+  margin: 0;
+  padding: 12px 16px;
+  background: #24292f;
+  color: #fff;
+  font-size: 18px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: #ffffff;
+  border-bottom: 1px solid #d0d7de;
+}
+
+.import-btn {
+  display: inline-block;
+  padding: 8px 14px;
+  background: #2da44e;
+  color: #fff;
+  font-size: 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.import-btn:hover {
+  background: #2c974b;
+}
+
+.import-btn input[type="file"] {
+  display: none;
+}
+
+.file-status {
+  font-size: 14px;
+  color: #57606a;
+}
+
+#viewer {
+  padding: 24px;
+  overflow: auto;
+}
+
+#pdf-canvas {
+  display: block;
+  margin: 0 auto;
+  background: #fff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}

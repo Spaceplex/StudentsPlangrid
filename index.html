@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Student Plangrid mockup</title>
+    <link href="style.css" rel="stylesheet">
+    <script type="module" src="index.js"></script>
+  </head>
+  <body>
+    <h1>Student Plangrid mockup</h1>
+    <div class="toolbar">
+      <label class="import-btn" for="pdf-file-input">
+        Import PDF
+        <input id="pdf-file-input" type="file" accept="application/pdf">
+      </label>
+      <span id="file-status" class="file-status"></span>
+    </div>
+    <div id="viewer">
+      <canvas id="pdf-canvas"></canvas>
+    </div>
+  </body>
+</html>
