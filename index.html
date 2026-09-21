@@ -5,19 +5,85 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Student Plangrid mockup</title>
     <link href="style.css" rel="stylesheet">
+    <!-- PDF.js CDN Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script type="module" src="index.js"></script>
   </head>
   <body>
-    <h1>Student Plangrid mockup</h1>
-    <div class="toolbar">
-      <label class="import-btn" for="pdf-file-input">
-        Import PDF
-        <input id="pdf-file-input" type="file" accept="application/pdf">
-      </label>
-      <span id="file-status" class="file-status"></span>
+    <!-- Left Navigation Panel -->
+    <div id="left">
+      <div id="buildings-container">
+        <button id="btn-new-building" class="diamond-btn">New Building</button>
+        <div class="list-group">
+          <button class="list-item">Fine arts building</button>
+          <button class="list-item">Sondheim</button>
+          <!-- <button class="list-item active-item">Sondheim</button> -->
+        </div>
+      </div>
+
+      <div id="floors-container">
+        <!-- Hidden file input triggered by New Floor button -->
+        <input type="file" id="pdf-upload" accept="application/pdf" style="display: none;" />
+        <button id="btn-new-floor" class="diamond-btn">New Floor</button>
+        <div class="list-group indent-list">
+          <button class="list-item">Level 1</button>
+        </div>
+      </div>
     </div>
-    <div id="viewer">
-      <canvas id="pdf-canvas"></canvas>
+
+    <!-- Center Blueprint Canvas View -->
+    <div id="canvas-center">
+      <canvas id="floor-view"></canvas>
+    </div>
+
+    <!-- Right Sidebar Task Panel -->
+    <div id="right">
+      <!-- <div class="user-profile"> -->
+      <!--   <div class="user-avatar">USER</div> -->
+      <!-- </div> -->
+
+      <div class="form-group">
+        <label for="task-name">Task</label>
+        <input type="text" id="task-name" value="Broken Light">
+      </div>
+
+      <div class="form-group">
+        <label for="task-desc">Description</label>
+        <textarea id="task-desc" rows="2">...</textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="task-creator">Creator</label>
+        <input type="email" id="task-creator" value="Joe@JC.org">
+      </div>
+
+      <div class="form-group">
+        <label for="task-collab">Collaborators</label>
+        <textarea id="task-collab" rows="2">- Mike@JC.org&#10;- Jane@JC.org</textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="start-date">Start Date</label>
+        <input type="date" id="start-date">
+      </div>
+
+      <div class="form-group">
+        <label for="end-date">End Date</label>
+        <input type="date" id="end-date">
+      </div>
+
+      <div class="form-group">
+        <label for="task-color">Color</label>
+        <input type="text" id="task-color" value="GREEN">
+      </div>
+
+      <div class="form-group">
+        <label>Media</label>
+        <div id="attached-media">
+          <div class="media-box"></div>
+          <div class="media-box"></div>
+        </div>
+      </div>
     </div>
   </body>
 </html>
