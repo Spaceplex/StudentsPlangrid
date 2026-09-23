@@ -1,4 +1,4 @@
-# projectomg
+# Students plangrid
 
 To install dependencies:
 
