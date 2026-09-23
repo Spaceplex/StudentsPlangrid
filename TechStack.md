@@ -1,5 +1,10 @@
 ## Runtime environment
-- NodeJS
+- Bun
+- ElysiaJS
+
+## Frontend
+- htmx
+- tailwindCSS
 
 ## SQL library
 - Postgresql
