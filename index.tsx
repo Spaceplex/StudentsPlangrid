@@ -1,4 +1,4 @@
-import { Elysia } from "elysia";
+import { Elysia, redirect } from "elysia";
 import { html } from "@elysiajs/html";
 import * as elements from "typed-html";
 
@@ -40,6 +40,16 @@ const BaseHtml = ({ children }: elements.Children) => `
 
 ${children}
 `;
+
+const LoginContainer = () => {
+  <div>
+    <input type="text" id="task-name">
+  </div>
+}
+
+function AttemptLogin(name: string, pwd: string) {
+  
+}
 
 const BuildingContainer = () => (
   <div>

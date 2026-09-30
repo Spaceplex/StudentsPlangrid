@@ -12,4 +12,4 @@ COPY . .
 # Expose port (Render sets the PORT env variable dynamically)
 EXPOSE 3000
 
-CMD ["bun", "run", "src/index.ts"]
+CMD ["bun", "run", "src/index.tsx"]
