@@ -1,0 +1,6 @@
+taskName,name,fileType,filePath
+Fix lobby door,Door closer photo,png,./sample/media/door_closer.png
+Fix lobby door,Door hinge close-up,png,./sample/media/door_hinge.png
+Replace ceiling tile,Water stain photo,png,./sample/media/water_stain.png
+Inspect fire exit,Exit sign photo,png,./sample/media/exit_sign.png
+Patch concrete crack,Crack inspection note,pdf,./sample/media/crack_note.pdf

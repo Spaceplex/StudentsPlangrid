@@ -1,0 +1,4 @@
+projectName,name,pdfPath,canvasSize
+Riverside Tower,Riverside Floor 1,./sample/pdfs/riverside_floor1.pdf,2400x1800
+Riverside Tower,Riverside Floor 2,./sample/pdfs/riverside_floor2.pdf,2400x1800
+Harbor Warehouse,Harbor Main Floor,./sample/pdfs/harbor_main.pdf,3000x2000

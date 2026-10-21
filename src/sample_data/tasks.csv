@@ -1,0 +1,7 @@
+sheetName,name,coordinateX,coordinateY,color,description,completion,createdBy,assignedTo
+Riverside Floor 1,Fix lobby door,120,340,#FF0000,"Door closer is loose, needs adjusting",todo,alice,bob
+Riverside Floor 1,Repaint reception wall,560,210,#00AA00,Scuff marks near the desk,in_progress,alice,
+Riverside Floor 2,Replace ceiling tile,800,450,#0000FF,"Water stain, tile in room 204",todo,carol,bob
+Riverside Floor 2,Inspect fire exit,95,980,#FFAA00,Check signage and lighting,done,bob,carol
+Harbor Main Floor,Patch concrete crack,1500,700,#FF00FF,"Crack near loading dock, about 2m long",in_progress,dave,erin
+Harbor Main Floor,Install shelving,300,1200,#00FFFF,Aisle 3 racking,todo,dave,

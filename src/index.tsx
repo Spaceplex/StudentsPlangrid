@@ -4,6 +4,9 @@ import * as elements from "typed-html";
 import { LoginPage, loginRoutes } from "./loginpage";
 import { dashboardRoutes } from "./dashboard";
 
+import * as sql from "./sql";
+sql.getTasksFromSheet(""); //done to make sure sql runs
+
 const app = new Elysia()
   .use(html())
   .get("/", () => <LoginPage />)
@@ -14,3 +17,4 @@ const app = new Elysia()
 console.log(
   `Elysia running at http://${app.server?.hostname}:${app.server?.port}`
 );
+
