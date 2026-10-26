@@ -48,7 +48,7 @@ export const loginRoutes = new Elysia()
       }
       const hash = await Bun.password.hash(body.password);
       await appendUser(username, hash);
-      set.headers["HX-Redirect"] = "/dashboard";
+      set.headers["HX-Redirect"] = "/projects";
       return "";
     },
     credentials
@@ -61,7 +61,7 @@ export const loginRoutes = new Elysia()
       if (!hash || !(await Bun.password.verify(body.password, hash))) {
         return <p class="text-red-400">Invalid username or password.</p>;
       }
-      set.headers["HX-Redirect"] = "/dashboard";
+      set.headers["HX-Redirect"] = "/projects";
       return "";
     },
     credentials

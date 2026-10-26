@@ -2,7 +2,7 @@ import { Elysia } from "elysia";
 import { html } from "@elysiajs/html";
 import * as elements from "typed-html";
 import { LoginPage, loginRoutes } from "./loginpage";
-import { dashboardRoutes } from "./dashboard";
+import { projectRoutes } from "./projectselect";
 
 import * as sql from "./sql";
 sql.getTasksFromSheet(""); //done to make sure sql runs
@@ -11,7 +11,7 @@ const app = new Elysia()
   .use(html())
   .get("/", () => <LoginPage />)
   .use(loginRoutes)
-  .use(dashboardRoutes)
+  .use(projectRoutes)
   .listen(3000);
 
 console.log(
