@@ -9,5 +9,5 @@ bun install
 To run:
 
 ```bash
-bun run index.tsx
+bun run src/index.tsx
 ```
