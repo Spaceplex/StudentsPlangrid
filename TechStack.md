@@ -12,3 +12,4 @@
 ## JS libraries
 - Import PDF -> pdfjslib
 - Draw on PDF -> Leaflet.js
+- Create Report -> pdfkit

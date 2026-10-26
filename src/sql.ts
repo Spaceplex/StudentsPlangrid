@@ -13,7 +13,7 @@ export interface Sheet {
   name: string;
   pdf_key: string;
   created_at: string;
-  canvas_size: string;
+  canvas_size: string | null;
 }
 
 export interface Task {
@@ -60,6 +60,16 @@ export async function getProjects(): Promise<Project[]> {
   return data;
 }
 
+export async function getProject(projectId: string): Promise<Project | null> {
+  const { data, error } = await supabase
+    .from("buildings")
+    .select("*")
+    .eq("id", projectId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data;
+}
+
 export async function getSheetsFromProject(buildingId: string): Promise<Sheet[]> {
   const { data, error } = await supabase
     .from("sheets")
@@ -67,6 +77,68 @@ export async function getSheetsFromProject(buildingId: string): Promise<Sheet[]>
     .eq("building_id", buildingId);
   if (error || !data) return [];
   return data;
+}
+
+export const SHEET_BUCKET = "floor-plans";
+
+let bucketReady: Promise<void> | null = null;
+const ensureSheetBucket = () =>
+  (bucketReady ??= (async () => {
+    const { error } = await supabase.storage.createBucket(SHEET_BUCKET, {
+      public: false,
+    });
+    if (error && !/already exists/i.test(error.message)) {
+      console.error("Failed to create sheet bucket:", error.message);
+    }
+  })());
+
+export async function uploadSheetPdf(
+  buildingId: string,
+  file: File,
+): Promise<string | null> {
+  await ensureSheetBucket();
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const key = `sheets/${buildingId}/${Date.now()}-${safeName}`;
+  const { error } = await supabase.storage
+    .from(SHEET_BUCKET)
+    .upload(key, file, { contentType: "application/pdf", upsert: false });
+  if (error) {
+    console.error("Failed to upload sheet PDF:", error.message);
+    return null;
+  }
+  return key;
+}
+
+export async function addSheet(
+  buildingId: string,
+  sheet: { name: string; pdfKey: string; canvasSize: string | null },
+): Promise<Sheet | null> {
+  const { data, error } = await supabase
+    .from("sheets")
+    .insert([
+      {
+        building_id: buildingId,
+        name: sheet.name,
+        pdf_key: sheet.pdfKey,
+        canvas_size: sheet.canvasSize,
+      },
+    ])
+    .select("*")
+    .single();
+  if (error || !data) {
+    console.error("Failed to add sheet:", error?.message);
+    return null;
+  }
+  return data;
+}
+
+export async function getSheetPdfUrl(pdfKey: string): Promise<string | null> {
+  if (!pdfKey) return null;
+  const { data, error } = await supabase.storage
+    .from(SHEET_BUCKET)
+    .createSignedUrl(pdfKey, 60 * 60);
+  if (error || !data) return null;
+  return data.signedUrl;
 }
 
 export async function getTasksFromSheet(sheetId: string): Promise<Task[]> {
@@ -78,12 +150,44 @@ export async function getTasksFromSheet(sheetId: string): Promise<Task[]> {
   return data;
 }
 
-export async function addTask(sheetId: string, task: Omit<Task, "id" | "created_at">): Promise<boolean> {
+export async function addTask(sheetId: string, task: Omit<Task, "id" | "created_at" | "sheet_id">): Promise<boolean> {
   const { error } = await supabase
     .from("tasks")
     .insert([{ sheet_id: sheetId, ...task }]);
   return !error;
 }
+
+export async function createTask(
+  sheetId: string,
+  task: Omit<Task, "id" | "created_at" | "sheet_id">,
+): Promise<Task | null> {
+  const { data, error } = await supabase
+    .from("tasks")
+    .insert([{ sheet_id: sheetId, ...task }])
+    .select("*")
+    .single();
+  if (error || !data) {
+    console.error("Failed to create task:", error?.message);
+    return null;
+  }
+  return data;
+}
+
+export const MEDIA_BUCKET = "task-media";
+
+let mediaBucketReady: Promise<void> | null = null;
+export const ensureMediaBucket = () =>
+  (mediaBucketReady ??= (async () => {
+    const { error } = await supabase.storage.getBucket(MEDIA_BUCKET);
+    if (!error) return;
+    const { error: createError } = await supabase.storage.createBucket(
+      MEDIA_BUCKET,
+      { public: true },
+    );
+    if (createError && !/already exists/i.test(createError.message)) {
+      console.error("Failed to create media bucket:", createError.message);
+    }
+  })());
 
 // Prototype function kinda
 export async function addMedia(attachment: {
@@ -93,6 +197,7 @@ export async function addMedia(attachment: {
   originalName: string;
   mediaType: string;
 }): Promise<Media | null> {
+  await ensureMediaBucket();
   const { data, error } = await supabase
     .from("attachments")
     .insert([
@@ -120,6 +225,7 @@ export async function addMedia(attachment: {
   };
 }
 export async function getMediaFromTask(taskId: string): Promise<Media[]> {
+  await ensureMediaBucket();
   const { data, error } = await supabase
     .from("attachments")
     .select("*")
