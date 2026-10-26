@@ -9,7 +9,6 @@ const lattice = (line: string, base: string) =>
     `background-image:repeating-linear-gradient(45deg, ${line} 0 1px, transparent 1px 9px), repeating-linear-gradient(-45deg, ${line} 0 1px, transparent 1px 9px)`,
   ].join(";");
 
-// Component rendering the list of projects from Supabase
 export const ProjectList = async () => {
   const projects = await sql.getProjects();
 
@@ -29,6 +28,19 @@ export const ProjectList = async () => {
   );
 };
 
+export const NewProjectButton = () => (
+  <div id="new-project-container" class="mt-6 flex justify-end">
+    <button
+      class="border border-gray-300 px-6 py-2 text-xl text-gray-100 hover:bg-white/10"
+      hx-get="/projects/new-form"
+      hx-target="#new-project-container"
+      hx-swap="outerHTML"
+    >
+      + NEW
+    </button>
+  </div>
+);
+
 export const ProjectSelectPage = async ({ currentUser }: { currentUser: string }) => (
   <BaseHtml>
     <body class="bg-black p-6" style="font-family:'Patrick Hand',cursive">
@@ -40,18 +52,11 @@ export const ProjectSelectPage = async ({ currentUser }: { currentUser: string }
           </span>
         </header>
 
-        <div id="new-project-container" class="mt-6 flex justify-end">
-          <button
-            class="border border-gray-300 px-6 py-2 text-xl text-gray-100 hover:bg-white/10"
-            hx-get="/projects/new-form"
-            hx-target="#new-project-container"
-            hx-swap="outerHTML"
-          >
-            + NEW
-          </button>
+        {/* WRAPPER ADDED HERE SO HTMX HAS A MATCHING TARGET ON PAGE LOAD */}
+        <div id="project-section">
+          <NewProjectButton />
+          {await ProjectList()}
         </div>
-
-        {await ProjectList()}
       </div>
     </body>
   </BaseHtml>
@@ -70,7 +75,7 @@ export const projectRoutes = new Elysia()
       id="new-project-container"
       class="mt-6 flex items-center justify-end gap-2"
       hx-post="/projects"
-      hx-target="#project-list"
+      hx-target="#project-section"
       hx-swap="outerHTML"
     >
       <input
@@ -93,10 +98,17 @@ export const projectRoutes = new Elysia()
     "/projects",
     async ({ body }) => {
       const projectName = body.name.trim();
-      if (projectName) {
-        await sql.addProject(projectName);
+      let errorMessage: string | null = null;
+      if (projectName && !(await sql.addProject(projectName))) {
+        errorMessage = "Could not save project. Please try again.";
       }
-      return await ProjectList();
+      return (
+        <div id="project-section">
+          <NewProjectButton />
+          {errorMessage && <p class="mt-2 text-red-400">{errorMessage}</p>}
+          {await ProjectList()}
+        </div>
+      );
     },
     {
       body: t.Object({

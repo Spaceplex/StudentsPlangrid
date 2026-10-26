@@ -45,7 +45,11 @@ export async function addProject(projectName: string): Promise<boolean> {
   const { error } = await supabase
     .from("buildings")
     .insert([{ name: projectName }]);
-  return !error;
+  if (error) {
+    console.error("Failed to add project:", error.message);
+    return false;
+  }
+  return true;
 }
 
 export async function getProjects(): Promise<Project[]> {
