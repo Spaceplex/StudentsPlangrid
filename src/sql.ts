@@ -1,5 +1,4 @@
 import { supabase } from "./db";
-import { Buffer } from "buffer";
 
 export interface Project { // Alias for buildings idk
   id: string;
@@ -60,22 +59,45 @@ export async function getProjects(): Promise<Project[]> {
   return data;
 }
 
+export async function getProjectById(id: string): Promise<Project | null> {
+  const { data, error } = await supabase.from("buildings").select("*").eq("id", id).maybeSingle();
+  if (error?.code === "22P02") return null;
+  if (error) throw error;
+  return data;
+}
+
+export async function getSheetById(id: string): Promise<Sheet | null> {
+  const { data, error } = await supabase.from("sheets").select("*").eq("id", id).maybeSingle();
+  if (error?.code === "22P02") return null;
+  if (error) throw error;
+  return data;
+}
+
+export async function getTaskById(id: string): Promise<Task | null> {
+  const { data, error } = await supabase.from("tasks").select("*").eq("id", id).maybeSingle();
+  if (error?.code === "22P02") return null;
+  if (error) throw error;
+  return data;
+}
+
 export async function getSheetsFromProject(buildingId: string): Promise<Sheet[]> {
   const { data, error } = await supabase
     .from("sheets")
     .select("*")
-    .eq("building_id", buildingId);
-  if (error || !data) return [];
-  return data;
+    .eq("building_id", buildingId)
+    .order("name");
+  if (error) throw error;
+  return data ?? [];
 }
 
 export async function getTasksFromSheet(sheetId: string): Promise<Task[]> {
   const { data, error } = await supabase
     .from("tasks")
     .select("*")
-    .eq("sheet_id", sheetId);
-  if (error || !data) return [];
-  return data;
+    .eq("sheet_id", sheetId)
+    .order("created_at").order("id");
+  if (error) throw error;
+  return data ?? [];
 }
 
 export async function addTask(sheetId: string, task: Omit<Task, "id" | "created_at">): Promise<boolean> {
@@ -123,11 +145,12 @@ export async function getMediaFromTask(taskId: string): Promise<Media[]> {
   const { data, error } = await supabase
     .from("attachments")
     .select("*")
-    .eq("task_id", taskId);
+    .eq("task_id", taskId)
+    .order("created_at").order("id");
 
-  if (error || !data) return[];
+  if (error) throw error;
 
-  return data.map((item) => {
+  return (data ?? []).map((item) => {
     const { data: urlData } = supabase.storage
       .from("task-media")
       .getPublicUrl(item.file_key);

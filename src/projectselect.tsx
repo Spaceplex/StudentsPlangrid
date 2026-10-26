@@ -2,6 +2,7 @@ import { Elysia, t } from "elysia";
 import * as elements from "typed-html";
 import { BaseHtml } from "./layout";
 import * as sql from "./sql";
+import { escapeHtml, MessagePage, ViewPage } from "./view";
 
 const lattice = (line: string, base: string) =>
   [
@@ -20,7 +21,7 @@ export const ProjectList = async () => {
           class="flex w-full items-center justify-between border border-gray-300 px-4 py-4 text-left text-xl text-gray-100 hover:brightness-125"
           style={lattice("rgba(150,90,220,.35)", "#2a1240")}
         >
-          <span>{proj.name}</span>
+          <span>{escapeHtml(proj.name)}</span>
           <span class="text-gray-200">...</span>
         </a>
       ))}
@@ -48,7 +49,7 @@ export const ProjectSelectPage = async ({ currentUser }: { currentUser: string }
         <header class="flex items-center justify-between border border-gray-300 px-6 py-4">
           <h1 class="text-2xl text-gray-100">StudentsPlangrid</h1>
           <span class="rounded-full border border-gray-300 px-4 py-1 text-sm text-gray-100">
-            {currentUser.toUpperCase()}
+            {escapeHtml(currentUser.toUpperCase())}
           </span>
         </header>
 
@@ -115,4 +116,34 @@ export const projectRoutes = new Elysia()
         name: t.String(),
       }),
     }
-  );
+  )
+  .get("/projects/:projectId", async ({ params, set }) => {
+    try {
+      const project = await sql.getProjectById(params.projectId);
+      if (!project) {
+        set.status = 404;
+        return <MessagePage title="Project not found" message="This project does not exist." />;
+      }
+      const sheets = await sql.getSheetsFromProject(project.id);
+      return (
+        <ViewPage title={project.name} backHref="/projects" backLabel="Back to projects">
+          <h2 class="mb-3 text-2xl">Sheets</h2>
+          {sheets.length === 0 ? <p>No sheets yet.</p> : (
+            <ul class="space-y-3">
+              {sheets.map((sheet) => (
+                <li>
+                  <a href={`/sheets/${sheet.id}/tasks`} class="block break-words border border-gray-300 p-4 text-violet-300 underline hover:bg-white/10">
+                    {escapeHtml(sheet.name)}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </ViewPage>
+      );
+    } catch (error) {
+      console.error("Failed to load project:", error);
+      set.status = 503;
+      return <MessagePage title="Could not load project" message="Please try again in a moment." />;
+    }
+  });
