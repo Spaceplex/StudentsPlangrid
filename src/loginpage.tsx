@@ -37,7 +37,7 @@ const credentials = {
 export const loginRoutes = new Elysia()
   .post(
     "/register",
-    async ({ body, set }) => {
+    async ({ body, set, cookie: { auth_user } }) => {
       const username = body.username.trim();
       if (!username || !body.password) {
         return <p class="text-red-400">Username and password are required.</p>;
@@ -48,6 +48,12 @@ export const loginRoutes = new Elysia()
       }
       const hash = await Bun.password.hash(body.password);
       await appendUser(username, hash);
+
+      // Create a session
+      auth_user.value = username;
+      auth_user.httpOnly = true;
+      auth_user.path = "/";
+
       set.headers["HX-Redirect"] = "/projects";
       return "";
     },
@@ -55,12 +61,18 @@ export const loginRoutes = new Elysia()
   )
   .post(
     "/login",
-    async ({ body, set }) => {
+    async ({ body, set, cookie: { auth_user } }) => {
       const username = body.username.trim();
       const hash = (await loadUsers()).get(username);
       if (!hash || !(await Bun.password.verify(body.password, hash))) {
         return <p class="text-red-400">Invalid username or password.</p>;
       }
+
+      // Create a session
+      auth_user.value = username;
+      auth_user.httpOnly = true;
+      auth_user.path = "/";
+
       set.headers["HX-Redirect"] = "/projects";
       return "";
     },

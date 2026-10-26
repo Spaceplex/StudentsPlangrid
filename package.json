@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@elysiajs/html": "^1.4.2",
+    "@supabase/supabase-js": "^2.118.0",
     "elysia": "^1.4.30"
   }
 }
