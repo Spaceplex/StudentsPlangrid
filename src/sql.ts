@@ -40,6 +40,31 @@ export interface Media {
   created_at: string;
 }
 
+export type TaskChanges = Pick<Task, "name" | "description" | "assigned_to" | "status" | "color">;
+
+export async function updateTask(id: string, changes: TaskChanges): Promise<Task | null> {
+  const { data, error } = await supabase.from("tasks")
+    .update(changes).eq("id", id).select("*").maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteTask(id: string): Promise<boolean> {
+  const media = await getMediaFromTask(id);
+  if (media.length) {
+    const { error } = await supabase.storage.from("task-media")
+      .remove(media.map((item) => item.file_key));
+    if (error) throw error;
+  }
+
+  // Delete last so failed file cleanup leaves the task available for a retry.
+  // Attachment rows are removed by the database's ON DELETE CASCADE constraint.
+  const { data, error } = await supabase.from("tasks")
+    .delete().eq("id", id).select("id").maybeSingle();
+  if (error) throw error;
+  return data !== null;
+}
+
 export async function addProject(projectName: string): Promise<boolean> {
   const { error } = await supabase
     .from("buildings")

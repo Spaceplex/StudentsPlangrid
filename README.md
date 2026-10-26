@@ -22,10 +22,20 @@ bun run src/index.tsx
 ```
 
 Open `http://localhost:3000`. Select a project, select a sheet, then click a task
-to see its description and attachments. These pages show existing database records;
-sheet uploads and task editing are separate features.
+to see its description and attachments. The task page includes Edit and Delete
+actions. Editing supports the name, description, assignee, status, and color;
+leave the assignee blank to unassign a task. Sheet uploads are a separate feature.
 
-To check the viewing routes:
+Statuses are `todo`, `in_progress`, `done`, and `verified`. The existing `open`
+status remains supported for older records.
+
+Deletion asks for confirmation, removes the task's files from the `task-media`
+bucket, then deletes the task. Attachment records are deleted by the schema's
+foreign-key cascade. Storage and database operations are separate: if file cleanup
+succeeds but the database delete fails, the task remains with a retry message;
+some attachment files may already be gone. Retry to finish deleting the task.
+
+To check the task routes:
 
 ```bash
 bun test tests/views.test.ts
