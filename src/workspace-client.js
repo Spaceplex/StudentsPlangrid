@@ -208,9 +208,54 @@ function setupReport() {
   });
 }
 
+function taskListItem(task, selected) {
+  const item = makeElement(
+    "button",
+    "flex w-full items-start gap-3 rounded-lg border px-3 py-2 text-left transition-colors duration-150 " +
+      (selected
+        ? "border-zinc-600 bg-zinc-800"
+        : "border-transparent hover:border-zinc-700 hover:bg-zinc-800/60"),
+  );
+  item.type = "button";
+
+  const dot = makeElement("span", "mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full");
+  dot.style.backgroundColor = task.color || TASK_COLOR;
+
+  const body = makeElement("span", "min-w-0 flex-1");
+  body.appendChild(makeElement("span", "block truncate text-sm font-medium", task.name));
+  const meta = makeElement("span", "mt-1 flex items-center gap-2");
+  meta.appendChild(statusBadge(task.status));
+  meta.appendChild(
+    makeElement("span", "truncate text-xs text-zinc-500", task.assigned_to || "Unassigned"),
+  );
+  body.appendChild(meta);
+
+  item.append(dot, body);
+  return item;
+}
+
+// Floor whose plan can't be shown: still list its tasks (read-only).
+function showTasksWithoutPlan() {
+  const taskList = document.getElementById("task-list");
+  const tasks = JSON.parse(document.getElementById("task-data")?.textContent || "[]");
+  if (!taskList || tasks.length === 0) return;
+
+  taskList.replaceChildren(
+    makeElement("p", "muted pb-2", "Plan unavailable, so tasks can't be edited here."),
+    ...tasks.map((task) => {
+      const item = taskListItem(task, false);
+      item.disabled = true;
+      return item;
+    }),
+  );
+}
+
 async function setupTaskBoard() {
   const mapElement = document.getElementById("floor-map");
-  if (!mapElement) return;
+  if (!mapElement) {
+    showTasksWithoutPlan();
+    return;
+  }
 
   const panel = document.getElementById("task-panel-body");
   const taskList = document.getElementById("task-list");
@@ -396,29 +441,7 @@ async function setupTaskBoard() {
     }
 
     visible.forEach((task) => {
-      const selected = task.id === selectedTaskId;
-      const item = makeElement(
-        "button",
-        "flex w-full items-start gap-3 rounded-lg border px-3 py-2 text-left transition-colors duration-150 " +
-          (selected
-            ? "border-zinc-600 bg-zinc-800"
-            : "border-transparent hover:border-zinc-700 hover:bg-zinc-800/60"),
-      );
-      item.type = "button";
-
-      const dot = makeElement("span", "mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full");
-      dot.style.backgroundColor = task.color || TASK_COLOR;
-
-      const body = makeElement("span", "min-w-0 flex-1");
-      body.appendChild(makeElement("span", "block truncate text-sm font-medium", task.name));
-      const meta = makeElement("span", "mt-1 flex items-center gap-2");
-      meta.appendChild(statusBadge(task.status));
-      meta.appendChild(
-        makeElement("span", "truncate text-xs text-zinc-500", task.assigned_to || "Unassigned"),
-      );
-      body.appendChild(meta);
-
-      item.append(dot, body);
+      const item = taskListItem(task, task.id === selectedTaskId);
       item.addEventListener("click", () => {
         const marker = markers.get(task.id);
         if (!marker) return;
