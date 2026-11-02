@@ -43,7 +43,7 @@ export const NewProjectButton = () => (
 
 export const ProjectSelectPage = async ({ currentUser }: { currentUser: string }) => (
   <BaseHtml>
-    <body class="bg-black p-6" style="font-family:'Patrick Hand',cursive">
+    <body class="bg-black p-6">
       <div class="mx-auto max-w-3xl border border-gray-300 p-4">
         <header class="flex items-center justify-between border border-gray-300 px-6 py-4">
           <h1 class="text-2xl text-gray-100">StudentsPlangrid</h1>

@@ -5,9 +5,9 @@ import * as sql from "./sql";
 
 const Diamond = ({ children, color }: { children?: string; color: string }) => (
   <div
-    class={`mx-auto flex h-28 w-28 rotate-45 items-center justify-center border text-center text-sm ${color}`}
+    class={`mx-auto flex h-28 w-28 items-center justify-center border text-center text-sm ${color}`}
   >
-    <span class="-rotate-45 whitespace-pre-line leading-tight">{children}</span>
+    <span class="whitespace-pre-line leading-tight">{children}</span>
   </div>
 );
 
@@ -106,19 +106,23 @@ export const ProjectWorkspacePage = async ({
   >
     <body
       class="min-h-screen bg-black p-6 text-gray-100"
-      style="font-family:'Patrick Hand',cursive"
     >
       <div class="mx-auto flex max-w-[96rem] gap-6">
         <aside class="flex w-72 shrink-0 flex-col border border-gray-300 p-5">
-          <a href="/projects">
-            <Diamond color="border-pink-400 text-pink-400">
-              {"NEW\nBUILDING"}
-            </Diamond>
-          </a>
+        {
+          //<a href="/projects">
+          //  <Diamond color="border-pink-400 text-pink-400">
+          //    {"NEW\nBUILDING"}
+          //  </Diamond>
+          //</a>
+        }
 
-          {await BuildingList({ projects, selectedId: project.id })}
+          {//await BuildingList({ projects, selectedId: project.id })\
+          }
 
-          <div class="my-8 border-t border-orange-400" />
+          {
+          //<div class="my-8 border-t border-orange-400" />
+          }
 
           <button
             id="btn-new-floor"

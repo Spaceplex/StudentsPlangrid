@@ -173,6 +173,22 @@ export async function createTask(
   return data;
 }
 
+export async function editTask(
+  task_id: string,
+  task: Omit<Task, "id">,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("tasks")
+    .update([{ task }])
+    .eq('id', task_id)
+    .select();
+  if (error || !data) {
+    console.error("Failed to edit task:", error?.message);
+    return false;
+  }
+  return true;
+}
+
 export const MEDIA_BUCKET = "task-media";
 
 let mediaBucketReady: Promise<void> | null = null;
