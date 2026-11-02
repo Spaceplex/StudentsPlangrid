@@ -1,6 +1,6 @@
 import { Elysia, t } from "elysia";
 import * as elements from "typed-html";
-import { BaseHtml, UserChip } from "./layout";
+import { BaseHtml, UserChip, escapeHtml } from "./layout";
 import * as sql from "./sql";
 
 export const ProjectList = async () => {
@@ -19,7 +19,7 @@ export const ProjectList = async () => {
               href={`/projects/${proj.id}`}
               class="card group flex items-center justify-between px-5 py-4 transition-colors duration-150 hover:border-zinc-600 hover:bg-zinc-800/60"
             >
-              <span class="truncate font-medium">{proj.name}</span>
+              <span class="truncate font-medium">{escapeHtml(proj.name)}</span>
               <span class="text-zinc-500 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-accent">
                 →
               </span>

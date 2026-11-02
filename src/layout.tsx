@@ -6,7 +6,8 @@ type BaseHtmlProps = {
   title?: string;
 };
 
-const escapeHtml = (value: string) =>
+// typed-html does not escape text children, so user-entered names go through this.
+export const escapeHtml = (value: string) =>
   value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -34,7 +35,7 @@ export const BaseHtml =({ children, head = "", title }: BaseHtmlProps) => `
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     ${head}
     <link rel="stylesheet" href="/app.css">
-    <script src="https://cdn.jsdelivr.net/npm/htmx.org@4/dist/htmx.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.1/dist/htmx.min.js"></script>
   </head>
   ${children}
 `;

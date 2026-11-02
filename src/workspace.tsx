@@ -1,6 +1,6 @@
 import { Elysia, t } from "elysia";
 import * as elements from "typed-html";
-import { BaseHtml, UserChip } from "./layout";
+import { BaseHtml, UserChip, escapeHtml } from "./layout";
 import * as sql from "./sql";
 
 const SheetList = ({
@@ -22,7 +22,7 @@ const SheetList = ({
           class="nav-item"
           aria-current={sheet.id === selectedId ? "page" : "false"}
         >
-          {sheet.name}
+          {escapeHtml(sheet.name)}
         </a>
       ))
     )}
@@ -127,7 +127,7 @@ export const ProjectWorkspacePage = async ({
             ← Buildings
           </a>
           <h1 id="project-name" class="truncate text-lg font-semibold">
-            {project.name}
+            {escapeHtml(project.name)}
           </h1>
         </div>
         <div class="flex items-center gap-2">
@@ -191,7 +191,7 @@ export const ProjectWorkspacePage = async ({
           {selectedSheet ? (
             <div class="flex items-center justify-between gap-3 border-b border-zinc-800 px-4 py-3">
               <h2 id="sheet-name" class="truncate font-medium">
-                {selectedSheet.name}
+                {escapeHtml(selectedSheet.name)}
               </h2>
               <div class="flex items-center gap-2">
                 {pdfUrl ? (
@@ -233,7 +233,7 @@ export const ProjectWorkspacePage = async ({
                 </div>
               ) : (
                 <div class="flex h-full min-h-[50vh] flex-col items-center justify-center gap-1">
-                  <h2 class="text-xl font-medium">{selectedSheet.name}</h2>
+                  <h2 class="text-xl font-medium">{escapeHtml(selectedSheet.name)}</h2>
                   <p class="muted">Plan preview unavailable.</p>
                 </div>
               )

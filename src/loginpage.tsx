@@ -4,11 +4,7 @@ import { appendUser, loadUsers } from "./consts";
 import { BaseHtml } from "./layout";
 
 export const LoginContainer = () => (
-  <form
-    class="card flex w-full max-w-sm flex-col gap-4 p-8"
-    hx-target="#login-msg"
-    hx-swap="innerHTML"
-  >
+  <form class="card flex w-full max-w-sm flex-col gap-4 p-8">
     <div class="mb-2">
       <h1 class="text-2xl font-semibold">StudentsPlangrid</h1>
       <p class="muted mt-1">Sign in to see your buildings and plans.</p>
@@ -21,8 +17,9 @@ export const LoginContainer = () => (
       <span class="label">Password</span>
       <input class="input" type="password" name="password" id="LoginPassword" autocomplete="current-password" />
     </label>
-    <button type="submit" hx-post="/login" class="btn btn-primary mt-2">Log in</button>
-    <button type="submit" hx-post="/register" class="btn">Create account</button>
+    {/* htmx 4 doesn't pass hx-target down from the form, so each button sets it */}
+    <button type="submit" hx-post="/login" hx-target="#login-msg" hx-swap="innerHTML" class="btn btn-primary mt-2">Log in</button>
+    <button type="submit" hx-post="/register" hx-target="#login-msg" hx-swap="innerHTML" class="btn">Create account</button>
     <div id="login-msg" class="text-sm"></div>
   </form>
 );

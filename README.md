@@ -26,3 +26,11 @@ bun run dev         # build css, then run the server with --watch
 ```
 
 `public/app.css` is committed so the Docker build works without the Tailwind CLI.
+
+## Supabase key
+
+The server needs `SUPABASE_URL` and `SUPABASE_KEY`. The key must be allowed to use
+Storage (the `floor-plans` and `task-media` buckets): use the **service-role key**
+on the server. The publishable key is blocked by Storage row-level security, so
+floor uploads fail and plans show "Plan preview unavailable". Never put the
+service-role key in client code; it is only read by the server.
