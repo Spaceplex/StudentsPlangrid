@@ -93,6 +93,7 @@ async function setupTaskBoard() {
   if (!mapElement) return;
 
   const panel = document.getElementById("task-panel-body");
+  const taskList = document.getElementById("task-list");
   const createButton = document.getElementById("btn-create-task");
   const sheetId = mapElement.dataset.sheetId;
   const currentUser = mapElement.dataset.currentUser || "unknown";
@@ -121,6 +122,7 @@ async function setupTaskBoard() {
   let selectedMarker = null;
   let placing = false;
   let draft = null;
+  const markers = new Map();
 
   const setPlacing = (value) => {
     placing = value;
@@ -156,11 +158,41 @@ async function setupTaskBoard() {
       bubblingMouseEvents: false,
     }).addTo(map);
     marker.on("click", () => selectTask(task, marker));
+    markers.set(task.id, marker);
     if (select) selectTask(task, marker);
     return marker;
   };
 
   tasks.forEach((task) => addTaskMarker(task, false));
+  refreshTaskList();
+
+  function refreshTaskList() {
+    if (!taskList) return;
+    taskList.replaceChildren();
+    if (tasks.length === 0) {
+      taskList.appendChild(makeElement("p", "text-sm text-green-700", "No tasks yet."));
+      return;
+    }
+
+    tasks.forEach((task) => {
+      const item = makeElement(
+        "button",
+        "border border-green-900 px-3 py-2 text-left text-sm hover:bg-green-400/10",
+      );
+      item.type = "button";
+      item.appendChild(makeElement("div", "text-green-300", task.name));
+      item.appendChild(
+        makeElement("div", "mt-1 text-xs text-green-700", `${task.status} · ${task.assigned_to || "Unassigned"}`),
+      );
+      item.addEventListener("click", () => {
+        const marker = markers.get(task.id);
+        if (!marker) return;
+        map.panTo(marker.getLatLng());
+        selectTask(task, marker);
+      });
+      taskList.appendChild(item);
+    });
+  }
 
   createButton?.addEventListener("click", () => {
     setPlacing(!placing);
@@ -189,7 +221,7 @@ async function setupTaskBoard() {
     }).addTo(map);
 
     draft = { x, y, marker };
-    showCreateForm();
+    showTaskForm();
   });
 
   function showPanelMessage(message) {
@@ -239,6 +271,24 @@ async function setupTaskBoard() {
       ),
     );
 
+    const actions = makeElement("div", "flex gap-2");
+    const editButton = makeElement(
+      "button",
+      "border border-green-400 px-3 py-2 text-sm text-green-400 hover:bg-green-400/10",
+      "Edit",
+    );
+    editButton.type = "button";
+    editButton.addEventListener("click", () => showTaskForm(task));
+    const deleteButton = makeElement(
+      "button",
+      "border border-red-500 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10",
+      "Delete",
+    );
+    deleteButton.type = "button";
+    deleteButton.addEventListener("click", () => deleteTask(task));
+    actions.append(editButton, deleteButton);
+    container.appendChild(actions);
+
     const mediaSection = makeElement("div", "mt-2 flex flex-col gap-2");
     const mediaHeader = makeElement("div", "flex items-center justify-between");
     mediaHeader.appendChild(
@@ -253,7 +303,7 @@ async function setupTaskBoard() {
     mediaHeader.appendChild(addMediaButton);
     const mediaInput = makeElement("input", "hidden");
     mediaInput.type = "file";
-    mediaInput.accept = "image/*,video/*";
+    mediaInput.accept = "image/*,video/*,application/pdf";
     const previews = makeElement("div", "flex flex-wrap gap-2");
     mediaSection.appendChild(mediaHeader);
     mediaSection.appendChild(mediaInput);
@@ -291,7 +341,7 @@ async function setupTaskBoard() {
     });
   }
 
-  function showCreateForm() {
+  function showTaskForm(existingTask) {
     if (!panel) return;
 
     const nameInput = makeElement(
@@ -302,6 +352,7 @@ async function setupTaskBoard() {
     nameInput.name = "name";
     nameInput.required = true;
     nameInput.placeholder = "Broken Light";
+    nameInput.value = existingTask?.name || "";
 
     const descriptionInput = makeElement(
       "textarea",
@@ -309,6 +360,7 @@ async function setupTaskBoard() {
     );
     descriptionInput.name = "description";
     descriptionInput.rows = 3;
+    descriptionInput.value = existingTask?.description || "";
 
     const assignedInput = makeElement(
       "input",
@@ -317,6 +369,7 @@ async function setupTaskBoard() {
     assignedInput.type = "text";
     assignedInput.name = "assigned_to";
     assignedInput.placeholder = "name@example.com";
+    assignedInput.value = existingTask?.assigned_to || "";
 
     const statusSelect = makeElement(
       "select",
@@ -329,6 +382,7 @@ async function setupTaskBoard() {
         statusSelect.appendChild(option);
       },
     );
+    statusSelect.value = existingTask?.status || "open";
 
     const colorInput = makeElement(
       "input",
@@ -336,7 +390,7 @@ async function setupTaskBoard() {
     );
     colorInput.type = "color";
     colorInput.name = "color";
-    colorInput.value = TASK_COLOR;
+    colorInput.value = existingTask?.color || TASK_COLOR;
 
     const form = makeElement("form", "flex flex-col gap-3");
     form.appendChild(labeled("Task", nameInput));
@@ -349,7 +403,7 @@ async function setupTaskBoard() {
     const saveButton = makeElement(
       "button",
       "border border-green-400 px-4 py-2 text-green-400 hover:bg-green-400/10",
-      "Save Task",
+      existingTask ? "Save Changes" : "Save Task",
     );
     saveButton.type = "submit";
     const cancelButton = makeElement(
@@ -359,9 +413,13 @@ async function setupTaskBoard() {
     );
     cancelButton.type = "button";
     cancelButton.addEventListener("click", () => {
-      if (draft?.marker) map.removeLayer(draft.marker);
-      draft = null;
-      showPanelMessage("Select a task on the plan to see its details.");
+      if (existingTask) {
+        showTaskDetails(existingTask);
+      } else {
+        if (draft?.marker) map.removeLayer(draft.marker);
+        draft = null;
+        showPanelMessage("Select a task on the plan to see its details.");
+      }
     });
     actions.appendChild(saveButton);
     actions.appendChild(cancelButton);
@@ -369,44 +427,83 @@ async function setupTaskBoard() {
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      if (!draft || !nameInput.value.trim()) return;
+      if ((!existingTask && !draft) || !nameInput.value.trim()) return;
 
       saveButton.disabled = true;
       saveButton.textContent = "Saving...";
 
       try {
+        const values = {
+          name: nameInput.value.trim(),
+          description: descriptionInput.value.trim(),
+          assigned_to: assignedInput.value.trim() || null,
+          status: statusSelect.value,
+          color: colorInput.value,
+        };
         const response = await fetch(
-          "/sheets/" + encodeURIComponent(sheetId) + "/tasks",
+          existingTask
+            ? "/tasks/" + encodeURIComponent(existingTask.id)
+            : "/sheets/" + encodeURIComponent(sheetId) + "/tasks",
           {
-            method: "POST",
+            method: existingTask ? "PATCH" : "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-              name: nameInput.value.trim(),
-              description: descriptionInput.value.trim(),
-              assigned_to: assignedInput.value.trim() || null,
-              status: statusSelect.value,
-              color: colorInput.value,
-              x_coord: draft.x,
-              y_coord: draft.y,
-            }),
+            body: JSON.stringify(
+              existingTask
+                ? values
+                : { ...values, x_coord: draft.x, y_coord: draft.y },
+            ),
           },
         );
         if (!response.ok) throw new Error(await response.text());
 
         const task = await response.json();
-        if (draft?.marker) map.removeLayer(draft.marker);
-        draft = null;
-        addTaskMarker(task, true);
+        if (existingTask) {
+          Object.assign(existingTask, task);
+          const marker = markers.get(task.id);
+          marker.setStyle({ color: task.color, fillColor: task.color });
+          refreshTaskList();
+          showTaskDetails(existingTask);
+        } else {
+          if (draft?.marker) map.removeLayer(draft.marker);
+          draft = null;
+          tasks.push(task);
+          addTaskMarker(task, true);
+          refreshTaskList();
+        }
       } catch (error) {
         console.error("Failed to create task:", error);
         alert("Failed to create task.");
         saveButton.disabled = false;
-        saveButton.textContent = "Save Task";
+        saveButton.textContent = existingTask ? "Save Changes" : "Save Task";
       }
     });
 
     panel.replaceChildren(form);
     nameInput.focus();
+  }
+
+  async function deleteTask(task) {
+    if (!window.confirm(`Delete "${task.name}" and its attachments?`)) return;
+
+    try {
+      const response = await fetch(
+        "/tasks/" + encodeURIComponent(task.id),
+        { method: "DELETE" },
+      );
+      if (!response.ok) throw new Error(await response.text());
+
+      const marker = markers.get(task.id);
+      if (marker) map.removeLayer(marker);
+      markers.delete(task.id);
+      const index = tasks.findIndex((item) => item.id === task.id);
+      if (index !== -1) tasks.splice(index, 1);
+      selectedMarker = null;
+      refreshTaskList();
+      showPanelMessage("Select a task on the plan to see its details.");
+    } catch (error) {
+      console.error("Failed to delete task:", error);
+      alert("Failed to delete task.");
+    }
   }
 }
 

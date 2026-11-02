@@ -173,20 +173,18 @@ export async function createTask(
   return data;
 }
 
-export async function editTask(
-  task_id: string,
-  task: Omit<Task, "id">,
-): Promise<boolean> {
+export async function updateTask(
+  taskId: string,
+  task: Pick<Task, "name" | "description" | "color" | "status" | "assigned_to">,
+): Promise<Task | null> {
   const { data, error } = await supabase
     .from("tasks")
-    .update([{ task }])
-    .eq('id', task_id)
-    .select();
-  if (error || !data) {
-    console.error("Failed to edit task:", error?.message);
-    return false;
-  }
-  return true;
+    .update(task)
+    .eq("id", taskId)
+    .select("*")
+    .maybeSingle();
+  if (error || !data) return null;
+  return data;
 }
 
 export const MEDIA_BUCKET = "task-media";
@@ -259,4 +257,26 @@ export async function getMediaFromTask(taskId: string): Promise<Media[]> {
       public_url: urlData.publicUrl,
     };
   });
+}
+
+export async function deleteTaskWithAttachments(taskId: string): Promise<boolean> {
+  const { data: attachments, error: attachmentsError } = await supabase
+    .from("attachments")
+    .select("file_key")
+    .eq("task_id", taskId);
+  if (attachmentsError) return false;
+
+  const keys = attachments?.map((attachment) => attachment.file_key) ?? [];
+  if (keys.length > 0) {
+    const { error } = await supabase.storage.from(MEDIA_BUCKET).remove(keys);
+    if (error) return false;
+  }
+
+  const { data, error } = await supabase
+    .from("tasks")
+    .delete()
+    .eq("id", taskId)
+    .select("id")
+    .maybeSingle();
+  return !error && !!data;
 }

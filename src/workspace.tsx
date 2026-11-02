@@ -81,6 +81,10 @@ const TaskPanel = () => (
         Select a task on the plan to see its details.
       </p>
     </div>
+    <div class="mt-6 border-t border-green-900 pt-4">
+      <h2 class="text-sm uppercase tracking-wide text-green-600">Tasks</h2>
+      <div id="task-list" class="mt-3 flex flex-col gap-2" />
+    </div>
   </aside>
 );
 
@@ -338,4 +342,45 @@ export const workspaceRoutes = new Elysia()
         y_coord: t.Number(),
       }),
     },
-  );
+  )
+  .patch(
+    "/tasks/:taskId",
+    async ({ params, body, set }) => {
+      const name = body.name.trim();
+      if (!name) {
+        set.status = 400;
+        return { error: "Task name is required." };
+      }
+
+      const task = await sql.updateTask(params.taskId, {
+        name,
+        description: body.description.trim(),
+        color: body.color,
+        status: body.status,
+        assigned_to: body.assigned_to?.trim() || null,
+      });
+      if (!task) {
+        set.status = 404;
+        return { error: "Task not found." };
+      }
+
+      return task;
+    },
+    {
+      body: t.Object({
+        name: t.String(),
+        description: t.String(),
+        color: t.String(),
+        status: t.String(),
+        assigned_to: t.Optional(t.Union([t.String(), t.Null()])),
+      }),
+    },
+  )
+  .delete("/tasks/:taskId", async ({ params, set }) => {
+    const deleted = await sql.deleteTaskWithAttachments(params.taskId);
+    if (!deleted) {
+      set.status = 404;
+      return { error: "Task not found or could not be deleted." };
+    }
+    return { deleted: true };
+  });
