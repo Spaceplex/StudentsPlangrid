@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+/* Build with `bun run css` -> public/app.css */
+@source "./";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --color-accent: #f59e0b;
+  --color-accent-strong: #fbbf24;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-zinc-950 font-sans text-zinc-100 antialiased;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-accent;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-zinc-700 bg-zinc-900 px-3.5 py-2 text-sm font-medium text-zinc-100 transition-colors duration-150 hover:border-zinc-500 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply border-accent bg-accent text-zinc-950 hover:border-accent-strong hover:bg-accent-strong;
+  }
+
+  .btn-danger {
+    @apply border-red-900 bg-transparent text-red-400 hover:border-red-700 hover:bg-red-950;
+  }
+
+  .btn-ghost {
+    @apply border-transparent bg-transparent text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100;
+  }
+
+  .btn-sm {
+    @apply px-2.5 py-1.5 text-xs;
+  }
+
+  .card {
+    @apply rounded-xl border border-zinc-800 bg-zinc-900;
+  }
+
+  .input {
+    @apply w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 transition-colors duration-150 focus:border-accent focus:outline-none;
+  }
+
+  .label {
+    @apply text-xs font-medium text-zinc-400;
+  }
+
+  .section-title {
+    @apply text-xs font-semibold tracking-wider text-zinc-500 uppercase;
+  }
+
+  .nav-item {
+    @apply block truncate rounded-lg px-3 py-2 text-sm text-zinc-300 transition-colors duration-150 hover:bg-zinc-800 hover:text-zinc-100;
+  }
+
+  .nav-item[aria-current="page"] {
+    @apply bg-zinc-800 font-medium text-accent;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-full border border-zinc-700 px-2 py-0.5 text-xs text-zinc-300;
+  }
+
+  .badge-open {
+    @apply border-sky-800 bg-sky-950 text-sky-300;
+  }
+
+  .badge-in_progress {
+    @apply border-amber-800 bg-amber-950 text-amber-300;
+  }
+
+  .badge-done {
+    @apply border-emerald-800 bg-emerald-950 text-emerald-300;
+  }
+
+  .muted {
+    @apply text-sm text-zinc-500;
+  }
+}
+
+/* Leaflet sits on a white plan, keep its controls matching the app. */
+.leaflet-container {
+  @apply rounded-lg bg-zinc-950 font-sans;
+}
+
+.leaflet-bar a {
+  @apply border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800;
+}

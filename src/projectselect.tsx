@@ -1,63 +1,70 @@
 import { Elysia, t } from "elysia";
 import * as elements from "typed-html";
-import { BaseHtml } from "./layout";
+import { BaseHtml, UserChip, escapeHtml } from "./layout";
 import * as sql from "./sql";
-
-const lattice = (line: string, base: string) =>
-  [
-    `background-color:${base}`,
-    `background-image:repeating-linear-gradient(45deg, ${line} 0 1px, transparent 1px 9px), repeating-linear-gradient(-45deg, ${line} 0 1px, transparent 1px 9px)`,
-  ].join(";");
 
 export const ProjectList = async () => {
   const projects = await sql.getProjects();
 
   return (
-    <div id="project-list" class="mt-4 flex flex-col gap-4">
-      {projects.map((proj) => (
-        <a
-          href={`/projects/${proj.id}`}
-          class="flex w-full items-center justify-between border border-gray-300 px-4 py-4 text-left text-xl text-gray-100 hover:brightness-125"
-          style={lattice("rgba(150,90,220,.35)", "#2a1240")}
-        >
-          <span>{proj.name}</span>
-          <span class="text-gray-200">...</span>
-        </a>
-      ))}
+    <div id="project-list" class="mt-4 grid gap-3 sm:grid-cols-2">
+      {projects.length === 0 ? (
+        <p class="muted col-span-full rounded-xl border border-dashed border-zinc-800 p-8 text-center">
+          No buildings yet. Add one to get started.
+        </p>
+      ) : (
+        projects
+          .map((proj) => (
+            <a
+              href={`/projects/${proj.id}`}
+              class="card group flex items-center justify-between px-5 py-4 transition-colors duration-150 hover:border-zinc-600 hover:bg-zinc-800/60"
+            >
+              <span class="truncate font-medium">{escapeHtml(proj.name)}</span>
+              <span class="text-zinc-500 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-accent">
+                →
+              </span>
+            </a>
+          ))
+      )}
     </div>
   );
 };
 
 export const NewProjectButton = () => (
-  <div id="new-project-container" class="mt-6 flex justify-end">
+  <div id="new-project-container" class="flex justify-end">
     <button
-      class="border border-gray-300 px-6 py-2 text-xl text-gray-100 hover:bg-white/10"
+      class="btn btn-primary"
       hx-get="/projects/new-form"
       hx-target="#new-project-container"
       hx-swap="outerHTML"
     >
-      + NEW
+      + New building
     </button>
   </div>
 );
 
 export const ProjectSelectPage = async ({ currentUser }: { currentUser: string }) => (
-  <BaseHtml>
-    <body class="bg-black p-6">
-      <div class="mx-auto max-w-3xl border border-gray-300 p-4">
-        <header class="flex items-center justify-between border border-gray-300 px-6 py-4">
-          <h1 class="text-2xl text-gray-100">StudentsPlangrid</h1>
-          <span class="rounded-full border border-gray-300 px-4 py-1 text-sm text-gray-100">
-            {currentUser.toUpperCase()}
-          </span>
-        </header>
+  <BaseHtml title="Buildings">
+    <body class="min-h-screen">
+      <header class="border-b border-zinc-800 bg-zinc-900/60">
+        <div class="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
+          <span class="font-semibold">StudentsPlangrid</span>
+          <UserChip name={currentUser} />
+        </div>
+      </header>
+
+      <main class="mx-auto max-w-4xl px-6 py-10">
+        <div class="mb-6">
+          <h1 class="text-2xl font-semibold">Buildings</h1>
+          <p class="muted mt-1">Pick a building to open its floor plans and tasks.</p>
+        </div>
 
         {/* WRAPPER ADDED HERE SO HTMX HAS A MATCHING TARGET ON PAGE LOAD */}
         <div id="project-section">
           <NewProjectButton />
           {await ProjectList()}
         </div>
-      </div>
+      </main>
     </body>
   </BaseHtml>
 );
@@ -73,7 +80,7 @@ export const projectRoutes = new Elysia()
   .get("/projects/new-form", () => (
     <form
       id="new-project-container"
-      class="mt-6 flex items-center justify-end gap-2"
+      class="flex items-center justify-end gap-2"
       hx-post="/projects"
       hx-target="#project-section"
       hx-swap="outerHTML"
@@ -81,14 +88,12 @@ export const projectRoutes = new Elysia()
       <input
         type="text"
         name="name"
-        placeholder="Building Name..."
-        class="border border-gray-300 bg-black px-4 py-2 text-white"
+        placeholder="Building name"
+        class="input max-w-xs"
         required
+        autofocus
       />
-      <button
-        type="submit"
-        class="border border-gray-300 bg-white/10 px-6 py-2 text-xl text-gray-100 hover:bg-white/20"
-      >
+      <button type="submit" class="btn btn-primary">
         Save
       </button>
     </form>
@@ -105,7 +110,7 @@ export const projectRoutes = new Elysia()
       return (
         <div id="project-section">
           <NewProjectButton />
-          {errorMessage && <p class="mt-2 text-red-400">{errorMessage}</p>}
+          {errorMessage && <p class="mt-3 text-sm text-red-400">{errorMessage}</p>}
           {await ProjectList()}
         </div>
       );

@@ -259,23 +259,75 @@ export async function getMediaFromTask(taskId: string): Promise<Media[]> {
   });
 }
 
-export async function deleteTaskWithAttachments(taskId: string): Promise<boolean> {
-  const { data: attachments, error: attachmentsError } = await supabase
+async function removeFiles(bucket: string, keys: string[]): Promise<boolean> {
+  if (keys.length === 0) return true;
+  const { error } = await supabase.storage.from(bucket).remove(keys);
+  if (error) console.error(`Failed to remove files from ${bucket}:`, error.message);
+  return !error;
+}
+
+async function removeTaskMedia(taskIds: string[]): Promise<boolean> {
+  if (taskIds.length === 0) return true;
+  const { data, error } = await supabase
     .from("attachments")
     .select("file_key")
-    .eq("task_id", taskId);
-  if (attachmentsError) return false;
+    .in("task_id", taskIds);
+  if (error) return false;
+  return removeFiles(MEDIA_BUCKET, data.map((attachment) => attachment.file_key));
+}
 
-  const keys = attachments?.map((attachment) => attachment.file_key) ?? [];
-  if (keys.length > 0) {
-    const { error } = await supabase.storage.from(MEDIA_BUCKET).remove(keys);
-    if (error) return false;
-  }
+// Removes the stored files (task media + floor plan PDFs) for these sheets.
+// The rows themselves cascade in the database, see supabase/schema.sql.
+async function removeSheetFiles(sheets: Pick<Sheet, "id" | "pdf_key">[]): Promise<boolean> {
+  if (sheets.length === 0) return true;
+  const { data: tasks, error } = await supabase
+    .from("tasks")
+    .select("id")
+    .in("sheet_id", sheets.map((sheet) => sheet.id));
+  if (error) return false;
+  if (!(await removeTaskMedia(tasks.map((task) => task.id)))) return false;
+  return removeFiles(SHEET_BUCKET, sheets.map((sheet) => sheet.pdf_key).filter(Boolean));
+}
+
+export async function deleteTaskWithAttachments(taskId: string): Promise<boolean> {
+  if (!(await removeTaskMedia([taskId]))) return false;
 
   const { data, error } = await supabase
     .from("tasks")
     .delete()
     .eq("id", taskId)
+    .select("id")
+    .maybeSingle();
+  return !error && !!data;
+}
+
+export async function deleteSheet(sheetId: string): Promise<boolean> {
+  const { data: sheet, error: sheetError } = await supabase
+    .from("sheets")
+    .select("id, pdf_key")
+    .eq("id", sheetId)
+    .maybeSingle();
+  if (sheetError || !sheet) return false;
+  if (!(await removeSheetFiles([sheet]))) return false;
+
+  const { data, error } = await supabase
+    .from("sheets")
+    .delete()
+    .eq("id", sheetId)
+    .select("id")
+    .maybeSingle();
+  return !error && !!data;
+}
+
+export async function deleteProject(projectId: string): Promise<boolean> {
+  const project = await getProject(projectId);
+  if (!project) return false;
+  if (!(await removeSheetFiles(await getSheetsFromProject(projectId)))) return false;
+
+  const { data, error } = await supabase
+    .from("buildings")
+    .delete()
+    .eq("id", projectId)
     .select("id")
     .maybeSingle();
   return !error && !!data;

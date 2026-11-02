@@ -4,24 +4,29 @@ import { appendUser, loadUsers } from "./consts";
 import { BaseHtml } from "./layout";
 
 export const LoginContainer = () => (
-  <form
-    class="bg-violet-500 flex flex-col px-[28%]"
-    hx-target="#login-msg"
-    hx-swap="innerHTML"
-  >
-    <h1>Username</h1>
-    <input class="text-black" type="text" name="username" id="LoginUsername" />
-    <h1>Password</h1>
-    <input class="text-black" type="password" name="password" id="LoginPassword" />
-    <button type="submit" hx-post="/login" class="bg-blue-500 text-orange">Login</button>
-    <button type="submit" hx-post="/register" class="bg-blue-500 text-orange">Create Account</button>
-    <div id="login-msg"></div>
+  <form class="card flex w-full max-w-sm flex-col gap-4 p-8">
+    <div class="mb-2">
+      <h1 class="text-2xl font-semibold">StudentsPlangrid</h1>
+      <p class="muted mt-1">Sign in to see your buildings and plans.</p>
+    </div>
+    <label class="flex flex-col gap-1.5">
+      <span class="label">Username</span>
+      <input class="input" type="text" name="username" id="LoginUsername" autocomplete="username" />
+    </label>
+    <label class="flex flex-col gap-1.5">
+      <span class="label">Password</span>
+      <input class="input" type="password" name="password" id="LoginPassword" autocomplete="current-password" />
+    </label>
+    {/* htmx 4 doesn't pass hx-target down from the form, so each button sets it */}
+    <button type="submit" hx-post="/login" hx-target="#login-msg" hx-swap="innerHTML" class="btn btn-primary mt-2">Log in</button>
+    <button type="submit" hx-post="/register" hx-target="#login-msg" hx-swap="innerHTML" class="btn">Create account</button>
+    <div id="login-msg" class="text-sm"></div>
   </form>
 );
 
 export const LoginPage = () => (
-  <BaseHtml>
-    <body class="bg-black text-white flex flex-col">
+  <BaseHtml title="Log in">
+    <body class="flex min-h-screen items-center justify-center p-6">
       <LoginContainer />
     </body>
   </BaseHtml>

@@ -3,8 +3,16 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "scripts": {
+    "css": "tailwindcss -i src/styles.css -o public/app.css --minify",
+    "css:watch": "tailwindcss -i src/styles.css -o public/app.css --watch",
+    "start": "bun run src/index.tsx",
+    "dev": "bun run css && bun --watch src/index.tsx"
+  },
   "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
     "@types/bun": "latest",
+    "tailwindcss": "^4.3.3",
     "typed-html": "^3.0.1"
   },
   "peerDependencies": {

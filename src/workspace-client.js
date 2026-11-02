@@ -2,12 +2,31 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
 const TASK_COLOR = "#22c55e";
+const STATUSES = [
+  ["open", "Open"],
+  ["in_progress", "In progress"],
+  ["done", "Done"],
+];
+const NO_ASSIGNEE = "__none__";
+
+const statusLabel = (status) =>
+  (STATUSES.find(([value]) => value === status) || [status, status])[1];
 
 function makeElement(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
   if (text !== undefined) node.textContent = text;
   return node;
+}
+
+function statusBadge(status) {
+  return makeElement("span", "badge badge-" + status, statusLabel(status));
+}
+
+function formatDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  return isNaN(date) ? value : date.toLocaleString();
 }
 
 async function renderPdfToCanvas(source) {
@@ -26,9 +45,21 @@ async function renderPdfToCanvas(source) {
 
 document.addEventListener("DOMContentLoaded", () => {
   setupNewFloor();
-  setupTaskBoard().catch((error) =>
-    console.error("Failed to initialize floor plan:", error),
-  );
+  setupDeleteButtons();
+  setupReport();
+  setupTaskBoard().catch((error) => {
+    console.error("Failed to initialize floor plan:", error);
+    const mapElement = document.getElementById("floor-map");
+    if (mapElement) {
+      mapElement.replaceChildren(
+        makeElement(
+          "p",
+          "flex h-full items-center justify-center text-sm text-red-400",
+          "Could not load the floor plan.",
+        ),
+      );
+    }
+  });
 });
 
 function setupNewFloor() {
@@ -55,6 +86,8 @@ function setupNewFloor() {
 
     const name = input.dataset.floorName || "New Floor";
     const buildingId = button.dataset.buildingId;
+    button.disabled = true;
+    button.textContent = "Uploading...";
 
     try {
       const buffer = await file.arrayBuffer();
@@ -82,26 +115,161 @@ function setupNewFloor() {
     } catch (error) {
       console.error("Failed to import PDF:", error);
       alert("Failed to import PDF file.");
+      button.disabled = false;
+      button.textContent = "+ New floor";
     } finally {
       input.value = "";
     }
   });
 }
 
+function setupDeleteButtons() {
+  const floorButton = document.getElementById("btn-delete-floor");
+  const buildingButton = document.getElementById("btn-delete-building");
+  const floorName = document.getElementById("sheet-name")?.textContent.trim();
+  const buildingName = document.getElementById("project-name")?.textContent.trim();
+
+  floorButton?.addEventListener("click", () =>
+    deleteAndRedirect(
+      floorButton,
+      `Delete floor "${floorName}"? Its plan, tasks and attachments will be removed.`,
+      "/sheets/" + encodeURIComponent(floorButton.dataset.sheetId),
+      "/projects/" + floorButton.dataset.buildingId,
+    ),
+  );
+
+  buildingButton?.addEventListener("click", () =>
+    deleteAndRedirect(
+      buildingButton,
+      `Delete building "${buildingName}"? Every floor, task and attachment in it will be removed.`,
+      "/projects/" + encodeURIComponent(buildingButton.dataset.buildingId),
+      "/projects",
+    ),
+  );
+}
+
+async function deleteAndRedirect(button, question, url, redirectTo) {
+  if (!window.confirm(question)) return;
+
+  const label = button.textContent;
+  button.disabled = true;
+  button.textContent = "Deleting...";
+  try {
+    const response = await fetch(url, { method: "DELETE" });
+    if (!response.ok) throw new Error(await response.text());
+    window.location.href = redirectTo;
+  } catch (error) {
+    console.error("Delete failed:", error);
+    alert("Could not delete. Please try again.");
+    button.disabled = false;
+    button.textContent = label;
+  }
+}
+
+function setupReport() {
+  const button = document.getElementById("btn-report");
+  const view = document.getElementById("report-view");
+  const frame = document.getElementById("report-frame");
+  const status = document.getElementById("report-status");
+  const closeButton = document.getElementById("btn-report-close");
+  if (!button || !view || !frame) return;
+
+  let reportUrl = null;
+
+  const close = () => {
+    view.classList.add("hidden");
+    frame.removeAttribute("src");
+    if (reportUrl) URL.revokeObjectURL(reportUrl);
+    reportUrl = null;
+  };
+
+  button.addEventListener("click", async () => {
+    view.classList.remove("hidden");
+    status.textContent = "Building report...";
+    button.disabled = true;
+    try {
+      reportUrl = await buildProjectReport(
+        button.dataset.projectId,
+        button.dataset.currentUser,
+      );
+      frame.src = reportUrl;
+      status.textContent = "Use the bookmarks sidebar to jump to a floor or task.";
+    } catch (error) {
+      console.error("Failed to build report:", error);
+      status.textContent = "Could not build the report.";
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  closeButton?.addEventListener("click", close);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !view.classList.contains("hidden")) close();
+  });
+}
+
+function taskListItem(task, selected) {
+  const item = makeElement(
+    "button",
+    "flex w-full items-start gap-3 rounded-lg border px-3 py-2 text-left transition-colors duration-150 " +
+      (selected
+        ? "border-zinc-600 bg-zinc-800"
+        : "border-transparent hover:border-zinc-700 hover:bg-zinc-800/60"),
+  );
+  item.type = "button";
+
+  const dot = makeElement("span", "mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full");
+  dot.style.backgroundColor = task.color || TASK_COLOR;
+
+  const body = makeElement("span", "min-w-0 flex-1");
+  body.appendChild(makeElement("span", "block truncate text-sm font-medium", task.name));
+  const meta = makeElement("span", "mt-1 flex items-center gap-2");
+  meta.appendChild(statusBadge(task.status));
+  meta.appendChild(
+    makeElement("span", "truncate text-xs text-zinc-500", task.assigned_to || "Unassigned"),
+  );
+  body.appendChild(meta);
+
+  item.append(dot, body);
+  return item;
+}
+
+// Floor whose plan can't be shown: still list its tasks (read-only).
+function showTasksWithoutPlan() {
+  const taskList = document.getElementById("task-list");
+  const tasks = JSON.parse(document.getElementById("task-data")?.textContent || "[]");
+  if (!taskList || tasks.length === 0) return;
+
+  taskList.replaceChildren(
+    makeElement("p", "muted pb-2", "Plan unavailable, so tasks can't be edited here."),
+    ...tasks.map((task) => {
+      const item = taskListItem(task, false);
+      item.disabled = true;
+      return item;
+    }),
+  );
+}
+
 async function setupTaskBoard() {
   const mapElement = document.getElementById("floor-map");
-  if (!mapElement) return;
+  if (!mapElement) {
+    showTasksWithoutPlan();
+    return;
+  }
 
   const panel = document.getElementById("task-panel-body");
   const taskList = document.getElementById("task-list");
   const createButton = document.getElementById("btn-create-task");
+  const exportButton = document.getElementById("btn-export-map");
   const sheetId = mapElement.dataset.sheetId;
   const currentUser = mapElement.dataset.currentUser || "unknown";
 
   const canvas = await renderPdfToCanvas(mapElement.dataset.pdfUrl);
+  mapElement.replaceChildren();
   const width = canvas.width;
   const height = canvas.height;
   const bounds = L.latLngBounds([0, 0], [height, width]);
+  const planImage = canvas.toDataURL("image/png");
 
   const map = L.map(mapElement, {
     crs: L.CRS.Simple,
@@ -110,7 +278,7 @@ async function setupTaskBoard() {
     minZoom: -5,
     attributionControl: false,
   });
-  L.imageOverlay(canvas.toDataURL("image/png"), bounds).addTo(map);
+  L.imageOverlay(planImage, bounds).addTo(map);
   map.fitBounds(bounds);
   map.setMaxBounds(bounds.pad(0.25));
   setTimeout(() => map.invalidateSize(), 0);
@@ -120,16 +288,102 @@ async function setupTaskBoard() {
   );
 
   let selectedMarker = null;
+  let selectedTaskId = null;
   let placing = false;
   let draft = null;
   const markers = new Map();
+
+  // ---- Filters (ZO447-41) and list search/sort (ZO447-40) ----
+
+  const filterSearch = document.getElementById("filter-search");
+  const filterStatus = document.getElementById("filter-status");
+  const filterAssignee = document.getElementById("filter-assignee");
+  const filterMine = document.getElementById("filter-mine");
+  const filterCount = document.getElementById("filter-count");
+  const taskSort = document.getElementById("task-sort");
+
+  const matchesFilters = (task) => {
+    const search = (filterSearch?.value || "").trim().toLowerCase();
+    const status = filterStatus?.value || "";
+    const assignee = filterAssignee?.value || "";
+
+    if (search) {
+      const text = (task.name + " " + (task.description || "")).toLowerCase();
+      if (!text.includes(search)) return false;
+    }
+    if (status && task.status !== status) return false;
+    if (assignee === NO_ASSIGNEE && task.assigned_to) return false;
+    if (assignee && assignee !== NO_ASSIGNEE && task.assigned_to !== assignee) {
+      return false;
+    }
+    if (filterMine?.checked && task.assigned_to !== currentUser) return false;
+    return true;
+  };
+
+  const sortTasks = (list) => {
+    const order = taskSort?.value || "newest";
+    const statusRank = (task) =>
+      STATUSES.findIndex(([value]) => value === task.status);
+    return [...list].sort((a, b) => {
+      if (order === "name") return a.name.localeCompare(b.name);
+      if (order === "status") return statusRank(a) - statusRank(b);
+      const diff = new Date(a.created_at) - new Date(b.created_at);
+      return order === "oldest" ? diff : -diff;
+    });
+  };
+
+  const refreshAssigneeOptions = () => {
+    if (!filterAssignee) return;
+    const current = filterAssignee.value;
+    const names = [...new Set(tasks.map((task) => task.assigned_to).filter(Boolean))].sort();
+
+    const options = [["", "Anyone"], [NO_ASSIGNEE, "Unassigned"]];
+    names.forEach((name) => options.push([name, name]));
+    filterAssignee.replaceChildren(
+      ...options.map(([value, label]) => {
+        const option = makeElement("option", "", label);
+        option.value = value;
+        return option;
+      }),
+    );
+    filterAssignee.value = options.some(([value]) => value === current) ? current : "";
+  };
+
+  const applyFilters = () => {
+    let shown = 0;
+    tasks.forEach((task) => {
+      const marker = markers.get(task.id);
+      if (!marker) return;
+      const visible = matchesFilters(task);
+      if (visible) shown++;
+      if (visible && !map.hasLayer(marker)) marker.addTo(map);
+      if (!visible && map.hasLayer(marker)) map.removeLayer(marker);
+    });
+    if (filterCount) {
+      filterCount.textContent =
+        shown === tasks.length
+          ? `${tasks.length} task${tasks.length === 1 ? "" : "s"}`
+          : `Showing ${shown} of ${tasks.length}`;
+    }
+    refreshTaskList();
+  };
+
+  [filterSearch, filterStatus, filterAssignee, filterMine, taskSort].forEach((input) =>
+    input?.addEventListener("input", applyFilters),
+  );
+
+  const tasksChanged = () => {
+    refreshAssigneeOptions();
+    applyFilters();
+  };
+
+  // ---- Map markers ----
 
   const setPlacing = (value) => {
     placing = value;
     mapElement.style.cursor = value ? "crosshair" : "";
     if (!createButton) return;
-    createButton.textContent = value ? "CLICK PLAN..." : "+ TASK";
-    createButton.classList.toggle("bg-green-400/20", value);
+    createButton.textContent = value ? "Click the plan..." : "+ Task";
   };
 
   const clearSelection = () => {
@@ -137,14 +391,17 @@ async function setupTaskBoard() {
       selectedMarker.setStyle({ weight: 3, fillOpacity: 0.55 });
       selectedMarker = null;
     }
+    selectedTaskId = null;
   };
 
   const selectTask = (task, marker) => {
     clearSelection();
     selectedMarker = marker;
+    selectedTaskId = task.id;
     marker.setStyle({ weight: 5, fillOpacity: 0.95 });
     marker.bringToFront();
     showTaskDetails(task);
+    refreshTaskList();
   };
 
   const addTaskMarker = (task, select) => {
@@ -157,6 +414,7 @@ async function setupTaskBoard() {
       fillOpacity: 0.55,
       bubblingMouseEvents: false,
     }).addTo(map);
+    marker.bindTooltip(task.name, { direction: "top", offset: [0, -10] });
     marker.on("click", () => selectTask(task, marker));
     markers.set(task.id, marker);
     if (select) selectTask(task, marker);
@@ -164,26 +422,26 @@ async function setupTaskBoard() {
   };
 
   tasks.forEach((task) => addTaskMarker(task, false));
-  refreshTaskList();
+  tasksChanged();
 
   function refreshTaskList() {
     if (!taskList) return;
     taskList.replaceChildren();
-    if (tasks.length === 0) {
-      taskList.appendChild(makeElement("p", "text-sm text-green-700", "No tasks yet."));
+
+    const visible = sortTasks(tasks.filter(matchesFilters));
+    if (visible.length === 0) {
+      taskList.appendChild(
+        makeElement(
+          "p",
+          "muted py-2",
+          tasks.length === 0 ? "No tasks yet. Use + Task to add one." : "No tasks match the filters.",
+        ),
+      );
       return;
     }
 
-    tasks.forEach((task) => {
-      const item = makeElement(
-        "button",
-        "border border-green-900 px-3 py-2 text-left text-sm hover:bg-green-400/10",
-      );
-      item.type = "button";
-      item.appendChild(makeElement("div", "text-green-300", task.name));
-      item.appendChild(
-        makeElement("div", "mt-1 text-xs text-green-700", `${task.status} · ${task.assigned_to || "Unassigned"}`),
-      );
+    visible.forEach((task) => {
+      const item = taskListItem(task, task.id === selectedTaskId);
       item.addEventListener("click", () => {
         const marker = markers.get(task.id);
         if (!marker) return;
@@ -198,8 +456,21 @@ async function setupTaskBoard() {
     setPlacing(!placing);
     if (placing) {
       clearSelection();
+      refreshTaskList();
       showPanelMessage("Click on the floor plan to place the task.");
     }
+  });
+
+  exportButton?.addEventListener("click", () => {
+    const projectName = document.getElementById("project-name")?.textContent.trim() || "Project";
+    const floorName = document.getElementById("sheet-name")?.textContent.trim() || "Floor";
+    downloadInteractiveMap({
+      title: projectName + " - " + floorName,
+      image: canvas.toDataURL("image/jpeg", 0.85),
+      width,
+      height,
+      tasks,
+    });
   });
 
   map.on("click", (event) => {
@@ -224,81 +495,72 @@ async function setupTaskBoard() {
     showTaskForm();
   });
 
+  // ---- Task panel ----
+
   function showPanelMessage(message) {
     if (!panel) return;
-    panel.replaceChildren(
-      makeElement("p", "text-sm text-green-600", message),
-    );
+    panel.replaceChildren(makeElement("p", "muted", message));
   }
 
   function labeled(label, control) {
-    const wrapper = makeElement("label", "flex flex-col gap-1");
-    wrapper.appendChild(
-      makeElement("span", "text-xs uppercase text-green-600", label),
-    );
+    const wrapper = makeElement("label", "flex flex-col gap-1.5");
+    wrapper.appendChild(makeElement("span", "label", label));
     wrapper.appendChild(control);
     return wrapper;
   }
 
   function detail(label, value) {
-    const wrapper = makeElement("div", "flex flex-col gap-1");
-    wrapper.appendChild(
-      makeElement("span", "text-xs uppercase text-green-600", label),
-    );
-    wrapper.appendChild(
-      makeElement(
-        "div",
-        "border border-green-400 px-3 py-2 text-sm",
-        value === null || value === undefined || value === "" ? "—" : value,
-      ),
-    );
+    const wrapper = makeElement("div", "flex flex-col gap-0.5");
+    wrapper.appendChild(makeElement("dt", "label", label));
+    const content = makeElement("dd", "text-sm break-words text-zinc-200");
+    if (value instanceof Node) content.appendChild(value);
+    else content.textContent = value === null || value === undefined || value === "" ? "—" : value;
+    wrapper.appendChild(content);
     return wrapper;
   }
 
   function showTaskDetails(task) {
     if (!panel) return;
-    const container = makeElement("div", "flex flex-col gap-3");
-    container.appendChild(detail("Task", task.name));
-    container.appendChild(detail("Description", task.description));
-    container.appendChild(detail("Status", task.status));
-    container.appendChild(detail("Created by", task.created_by));
-    container.appendChild(detail("Assigned to", task.assigned_to));
-    container.appendChild(detail("Color", task.color));
-    container.appendChild(
-      detail(
-        "Location",
-        Math.round(task.x_coord) + ", " + Math.round(task.y_coord),
-      ),
+    const container = makeElement("div", "flex flex-col gap-4");
+
+    const title = makeElement("div", "flex items-start gap-2");
+    const dot = makeElement("span", "mt-1.5 h-3 w-3 shrink-0 rounded-full");
+    dot.style.backgroundColor = task.color || TASK_COLOR;
+    title.append(dot, makeElement("h3", "text-base font-semibold break-words", task.name));
+    container.appendChild(title);
+
+    const details = makeElement("dl", "grid grid-cols-2 gap-3");
+    details.appendChild(detail("Status", statusBadge(task.status)));
+    details.appendChild(detail("Assigned to", task.assigned_to));
+    details.appendChild(detail("Created by", task.created_by));
+    details.appendChild(detail("Created", formatDate(task.created_at)));
+    container.appendChild(details);
+
+    const description = makeElement("dl");
+    description.appendChild(detail("Description", task.description));
+    container.appendChild(description);
+
+    const location = makeElement(
+      "p",
+      "text-xs text-zinc-500",
+      "Location " + Math.round(task.x_coord) + ", " + Math.round(task.y_coord),
     );
+    container.appendChild(location);
 
     const actions = makeElement("div", "flex gap-2");
-    const editButton = makeElement(
-      "button",
-      "border border-green-400 px-3 py-2 text-sm text-green-400 hover:bg-green-400/10",
-      "Edit",
-    );
+    const editButton = makeElement("button", "btn btn-sm", "Edit");
     editButton.type = "button";
     editButton.addEventListener("click", () => showTaskForm(task));
-    const deleteButton = makeElement(
-      "button",
-      "border border-red-500 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10",
-      "Delete",
-    );
+    const deleteButton = makeElement("button", "btn btn-danger btn-sm", "Delete");
     deleteButton.type = "button";
     deleteButton.addEventListener("click", () => deleteTask(task));
     actions.append(editButton, deleteButton);
     container.appendChild(actions);
 
-    const mediaSection = makeElement("div", "mt-2 flex flex-col gap-2");
+    const mediaSection = makeElement("div", "flex flex-col gap-2 border-t border-zinc-800 pt-4");
     const mediaHeader = makeElement("div", "flex items-center justify-between");
-    mediaHeader.appendChild(
-      makeElement("span", "text-xs uppercase text-green-600", "Media"),
-    );
-    const addMediaButton = makeElement(
-      "button",
-      "border border-green-400 px-3 py-1 text-sm text-green-400 hover:bg-green-400/10",
-      "Add Media",
-    );
+    mediaHeader.appendChild(makeElement("span", "label", "Media"));
+    const addMediaButton = makeElement("button", "btn btn-sm", "Add media");
     addMediaButton.type = "button";
     mediaHeader.appendChild(addMediaButton);
     const mediaInput = makeElement("input", "hidden");
@@ -335,7 +597,7 @@ async function setupTaskBoard() {
         alert("Failed to upload media.");
       } finally {
         addMediaButton.disabled = false;
-        addMediaButton.textContent = "Add Media";
+        addMediaButton.textContent = "Add media";
         mediaInput.value = "";
       }
     });
@@ -344,73 +606,60 @@ async function setupTaskBoard() {
   function showTaskForm(existingTask) {
     if (!panel) return;
 
-    const nameInput = makeElement(
-      "input",
-      "w-full border border-green-400 bg-black px-3 py-2 text-sm text-green-100",
-    );
+    const nameInput = makeElement("input", "input");
     nameInput.type = "text";
     nameInput.name = "name";
     nameInput.required = true;
     nameInput.placeholder = "Broken Light";
     nameInput.value = existingTask?.name || "";
 
-    const descriptionInput = makeElement(
-      "textarea",
-      "w-full border border-green-400 bg-black px-3 py-2 text-sm text-green-100",
-    );
+    const descriptionInput = makeElement("textarea", "input");
     descriptionInput.name = "description";
     descriptionInput.rows = 3;
     descriptionInput.value = existingTask?.description || "";
 
-    const assignedInput = makeElement(
-      "input",
-      "w-full border border-green-400 bg-black px-3 py-2 text-sm text-green-100",
-    );
+    const assignedInput = makeElement("input", "input");
     assignedInput.type = "text";
     assignedInput.name = "assigned_to";
     assignedInput.placeholder = "name@example.com";
     assignedInput.value = existingTask?.assigned_to || "";
 
-    const statusSelect = makeElement(
-      "select",
-      "w-full border border-green-400 bg-black px-3 py-2 text-sm text-green-100",
-    );
-    [["open", "Open"], ["in_progress", "In progress"], ["done", "Done"]].forEach(
-      ([value, label]) => {
-        const option = makeElement("option", "", label);
-        option.value = value;
-        statusSelect.appendChild(option);
-      },
-    );
+    const statusSelect = makeElement("select", "input");
+    STATUSES.forEach(([value, label]) => {
+      const option = makeElement("option", "", label);
+      option.value = value;
+      statusSelect.appendChild(option);
+    });
     statusSelect.value = existingTask?.status || "open";
 
     const colorInput = makeElement(
       "input",
-      "h-10 w-full border border-green-400 bg-black",
+      "h-10 w-full cursor-pointer rounded-lg border border-zinc-700 bg-zinc-950 p-1",
     );
     colorInput.type = "color";
     colorInput.name = "color";
     colorInput.value = existingTask?.color || TASK_COLOR;
 
     const form = makeElement("form", "flex flex-col gap-3");
+    form.appendChild(
+      makeElement("h3", "text-base font-semibold", existingTask ? "Edit task" : "New task"),
+    );
     form.appendChild(labeled("Task", nameInput));
     form.appendChild(labeled("Description", descriptionInput));
     form.appendChild(labeled("Assigned to", assignedInput));
-    form.appendChild(labeled("Status", statusSelect));
-    form.appendChild(labeled("Color", colorInput));
+    const row = makeElement("div", "grid grid-cols-2 gap-3");
+    row.appendChild(labeled("Status", statusSelect));
+    row.appendChild(labeled("Color", colorInput));
+    form.appendChild(row);
 
-    const actions = makeElement("div", "mt-2 flex gap-2");
+    const actions = makeElement("div", "mt-1 flex gap-2");
     const saveButton = makeElement(
       "button",
-      "border border-green-400 px-4 py-2 text-green-400 hover:bg-green-400/10",
-      existingTask ? "Save Changes" : "Save Task",
+      "btn btn-primary",
+      existingTask ? "Save changes" : "Save task",
     );
     saveButton.type = "submit";
-    const cancelButton = makeElement(
-      "button",
-      "border border-green-700 px-4 py-2 text-green-600 hover:bg-green-400/10",
-      "Cancel",
-    );
+    const cancelButton = makeElement("button", "btn btn-ghost", "Cancel");
     cancelButton.type = "button";
     cancelButton.addEventListener("click", () => {
       if (existingTask) {
@@ -461,20 +710,21 @@ async function setupTaskBoard() {
           Object.assign(existingTask, task);
           const marker = markers.get(task.id);
           marker.setStyle({ color: task.color, fillColor: task.color });
-          refreshTaskList();
+          marker.setTooltipContent(task.name);
+          tasksChanged();
           showTaskDetails(existingTask);
         } else {
           if (draft?.marker) map.removeLayer(draft.marker);
           draft = null;
           tasks.push(task);
           addTaskMarker(task, true);
-          refreshTaskList();
+          tasksChanged();
         }
       } catch (error) {
-        console.error("Failed to create task:", error);
-        alert("Failed to create task.");
+        console.error("Failed to save task:", error);
+        alert("Failed to save task.");
         saveButton.disabled = false;
-        saveButton.textContent = existingTask ? "Save Changes" : "Save Task";
+        saveButton.textContent = existingTask ? "Save changes" : "Save task";
       }
     });
 
@@ -498,7 +748,8 @@ async function setupTaskBoard() {
       const index = tasks.findIndex((item) => item.id === task.id);
       if (index !== -1) tasks.splice(index, 1);
       selectedMarker = null;
-      refreshTaskList();
+      selectedTaskId = null;
+      tasksChanged();
       showPanelMessage("Select a task on the plan to see its details.");
     } catch (error) {
       console.error("Failed to delete task:", error);
@@ -508,9 +759,7 @@ async function setupTaskBoard() {
 }
 
 async function loadTaskMedia(taskId, container) {
-  container.replaceChildren(
-    makeElement("p", "text-sm text-green-700", "Loading media..."),
-  );
+  container.replaceChildren(makeElement("p", "muted", "Loading media..."));
 
   try {
     const response = await fetch(
@@ -521,11 +770,7 @@ async function loadTaskMedia(taskId, container) {
 
     container.replaceChildren();
     if (items.length === 0) {
-      const empty = makeElement(
-        "p",
-        "text-sm text-green-700",
-        "No media yet.",
-      );
+      const empty = makeElement("p", "muted", "No media yet.");
       empty.dataset.emptyMessage = "true";
       container.appendChild(empty);
       return;
@@ -544,30 +789,36 @@ function renderMedia(container, media, prepend) {
   const empty = container.querySelector("[data-empty-message]");
   if (empty) empty.remove();
 
-  const wrapper = makeElement("div", "border border-green-400");
   const mediaType = media.media_type || "";
+  const name = media.original_name || "Attachment";
+  const frame = "overflow-hidden rounded-lg border border-zinc-700 bg-zinc-950";
+  let item;
 
-  if (mediaType.startsWith("image/")) {
-    const image = makeElement("img", "h-20 w-20 object-cover");
-    image.src = media.public_url;
-    image.alt = media.original_name || "Attachment";
-    wrapper.appendChild(image);
-  } else if (mediaType.startsWith("video/")) {
+  if (mediaType.startsWith("video/")) {
+    item = makeElement("div", frame);
     const video = makeElement("video", "h-20 w-32 object-cover");
     video.src = media.public_url;
     video.muted = true;
     video.controls = true;
-    wrapper.appendChild(video);
+    item.appendChild(video);
   } else {
-    wrapper.appendChild(
-      makeElement(
-        "span",
-        "block px-2 py-1 text-xs",
-        media.original_name || "Attachment",
-      ),
-    );
+    item = makeElement("a", frame + " block transition-colors duration-150 hover:border-zinc-500");
+    item.href = media.public_url;
+    item.target = "_blank";
+    item.rel = "noopener";
+    item.title = name;
+    if (mediaType.startsWith("image/")) {
+      const image = makeElement("img", "h-20 w-20 object-cover");
+      image.src = media.public_url;
+      image.alt = name;
+      item.appendChild(image);
+    } else {
+      item.appendChild(
+        makeElement("span", "block max-w-40 truncate px-3 py-2 text-xs text-zinc-300", name),
+      );
+    }
   }
 
-  if (prepend) container.insertBefore(wrapper, container.firstChild);
-  else container.appendChild(wrapper);
+  if (prepend) container.insertBefore(item, container.firstChild);
+  else container.appendChild(item);
 }
