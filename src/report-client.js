@@ -9,6 +9,15 @@ const REPORT_STATUSES = [
   ["done", "Done", "#059669"],
 ];
 
+// Dark text on light pin colors so the number stays readable.
+function pinTextColor(color) {
+  const match = /^#?([0-9a-f]{6})$/i.exec(color || "");
+  if (!match) return "#ffffff";
+  const n = parseInt(match[1], 16);
+  const brightness = 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
+  return brightness > 180 ? "#18181b" : "#ffffff";
+}
+
 const reportStatus = (status) =>
   REPORT_STATUSES.find(([value]) => value === status) || [status, status, "#52525b"];
 
@@ -206,10 +215,11 @@ async function buildProjectReport(projectId, currentUser) {
       const [, statusText, statusColor] = reportStatus(task.status);
       const rowTop = y;
       doc.setFillColor(task.color || "#22c55e");
-      doc.circle(margin + 10, y - 3.5, 7, "F");
+      doc.setDrawColor("#a1a1aa");
+      doc.circle(margin + 10, y - 3.5, 7, "FD");
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8);
-      doc.setTextColor("#ffffff");
+      doc.setTextColor(pinTextColor(task.color || "#22c55e"));
       doc.text(String(index + 1), margin + 10, y - 0.5, { align: "center" });
 
       doc.setFont("helvetica", "bold");
@@ -262,9 +272,9 @@ async function reportPlanImage(pdfUrl, tasks) {
     context.fillStyle = task.color || "#22c55e";
     context.fill();
     context.lineWidth = Math.max(2, radius / 5);
-    context.strokeStyle = "#ffffff";
+    context.strokeStyle = "#3f3f46";
     context.stroke();
-    context.fillStyle = "#ffffff";
+    context.fillStyle = pinTextColor(task.color || "#22c55e");
     context.font = "bold " + Math.round(radius * 1.1) + "px sans-serif";
     context.textAlign = "center";
     context.textBaseline = "middle";
